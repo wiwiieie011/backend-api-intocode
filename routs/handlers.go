@@ -9,11 +9,8 @@ import (
 func StudentsRout(c *gin.Engine) {
 	s:=  c.Group("/students")
 	{
-	 s.GET("/",controllers.GetAllStudents)
-	 s.GET("/:id", controllers.GetStudentsByID)
-	 s.GET("/g_id", controllers.GetStudentsByGroupID)
-	 s.GET("/p", controllers.GetPaidStudents)
-	 s.GET("/st_s",controllers.GetStudentsStudyStatus)
+	 s.GET("/list",controllers.GetAllStudents)
+	 s.GET("/", controllers.GetStudentsByFilters)
 	 s.POST("/", controllers.CreateStudent)
 	 s.PATCH("/:id", controllers.PathStudent)
 	 s.DELETE("/:id", controllers.DeleteStudentByID)
@@ -21,12 +18,10 @@ func StudentsRout(c *gin.Engine) {
 
 	g:= c.Group("/group")
 	{
-		g.GET("/", controllers.GetGroups)
-		g.GET("/c_w" ,controllers.GetGroupByWeek)
-		g.GET("/f", controllers.GetFinishedGroups)
+		g.GET("/list", controllers.GetGroups)
+		g.GET("/", controllers.GetGroupFilters)
 		g.GET("/:id", controllers.GetGroupByID)
 		g.GET("/:id/stats/offer", controllers.GetOfferStats)
-		g.GET("/finish",controllers.GetGroupByWeek)
 		g.POST("/", controllers.CreateGroup)
 		g.PATCH("/:id", controllers.UpdateGroupByID)
 		g.DELETE("/:id", controllers.DeleteGroupByID)

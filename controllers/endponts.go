@@ -32,49 +32,38 @@ func GetStudentsByID(c *gin.Context) {
 }
 
 func GetStudentsByGroupID(c *gin.Context) {
+	// Unified handler: keep wrappers below but implement logic here
+	// (this function remains as a wrapper to preserve existing route names)
+	GetStudentsByFilters(c)
+}
+
+// GetStudentsByFilters returns students filtered by any combination of
+// query parameters: `group_id`, `payment_status`, `study_status`.
+// At least one filter must be provided.
+func GetStudentsByFilters(c *gin.Context) {
 	groupID := c.Query("group_id")
-	if groupID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "group_id is required"})
+	paymentStatus := c.Query("payment_status")
+	studyStatus := c.Query("study_status")
+
+	if groupID == "" && paymentStatus == "" && studyStatus == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one filter (group_id, payment_status, study_status) is required"})
 		return
 	}
 
 	var students []models.Student
 
-	if err := config.DB.Where("group_id = ?", groupID).Preload("Group").Find(&students).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+	db := config.DB.Preload("Group")
+	if groupID != "" {
+		db = db.Where("group_id = ?", groupID)
+	}
+	if paymentStatus != "" {
+		db = db.Where("payment_status = ?", paymentStatus)
+	}
+	if studyStatus != "" {
+		db = db.Where("study_status = ?", studyStatus)
 	}
 
-	c.JSON(http.StatusOK, students)
-}
-
-func GetPaidStudents(c *gin.Context) {
-	status := c.Query("payment_status")
-	if status == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "payment_status is required"})
-		return
-	}
-
-	var students []models.Student
-
-	if err := config.DB.Where("payment_status = ?", status).Preload("Group").Find(&students).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, students)
-}
-
-func GetStudentsStudyStatus(c *gin.Context) {
-	status := c.Query("study_status")
-	if status == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "study_status is required"})
-		return
-	}
-
-	var students []models.Student
-
-	if err := config.DB.Where("study_status = ?", status).Preload("Group").Find(&students).Error; err != nil {
+	if err := db.Find(&students).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -168,56 +157,40 @@ func GetGroups(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, gin.H{"find": groups})
 }
 
-func GetGroupByWeek(c *gin.Context) {
+func GetGroupFilters(c *gin.Context) {
 	week := c.Query("current_week")
-	if week == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "current_week is required"})
-		return
-	}
-
-	var group []models.Group
-
-	if err := config.DB.Where("current_week = ?", week).Find(&group).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.IndentedJSON(http.StatusOK, group)
-}
-
-func GetFinishedGroups(c *gin.Context) {
-
 	finished := c.Query("is_finished")
-	if finished == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "is_finished is required"})
+	finishedFlag := c.Query("finished")
+
+	if week == "" && finished == "" && finishedFlag == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one filter (current_week, is_finished, finished) is required"})
 		return
 	}
 
-	var group []models.Group
+	var groups []models.Group
 
-	if err := config.DB.Where("is_finished = ?", finished).Find(&group).Error; err != nil {
+	db := config.DB.Preload("Students")
+
+	// special `finished=true` flag: groups that are finished OR current_week >= total_weeks
+	if finishedFlag == "true" {
+		db = db.Where("is_finished = ? OR current_week >= total_weeks", true)
+	} else {
+		if finished != "" {
+			db = db.Where("is_finished = ?", finished)
+		}
+		if week != "" {
+			db = db.Where("current_week = ?", week)
+		}
+	}
+
+	if err := db.Find(&groups).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, group)
+	c.IndentedJSON(http.StatusOK, groups)
 }
 
-
-func GetGroupswww(c *gin.Context) {
-    finished := c.Query("finished")
-
-    var groups []models.Group
-
-    if finished == "true" {
-        if err := config.DB.Where("is_finished = ? OR current_week >= total_weeks", true).Preload("Students").Find(&groups).Error; err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-            return
-        }
-    }
-
-    c.JSON(http.StatusOK, groups)
-}
 
 
 func GetGroupByID(c *gin.Context) {
@@ -263,7 +236,7 @@ func GetOfferStats(c *gin.Context) {
 
 func CreateGroup(c *gin.Context) {
 	var InputGroup models.InputGroup
-	
+
 	if err := c.ShouldBindJSON(&InputGroup); err != nil {
 		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": err})
 		return
@@ -377,9 +350,9 @@ func UpdateNotes(c *gin.Context) {
 	}
 
 	var updateNote models.UpdateNote
-	if err:= c.ShouldBindJSON(&updateNote); err !=nil{
-			c.IndentedJSON(http.StatusBadRequest ,  gin.H{"error": err})
-		}
+	if err := c.ShouldBindJSON(&updateNote); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": err})
+	}
 
 	if err := config.DB.Model(&mainNote).Where("id = ?", c.Param("id")).Updates(updateNote).Error; err != nil {
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
