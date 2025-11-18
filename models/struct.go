@@ -27,8 +27,8 @@ type Student struct {
 	PaymentStatus string `json:"payment_status"` // "paid", "unpaid", "partial"
 	StudyStatus   string `json:"study_status"`   // "learning", "job_search", "offer", "working"
 
-	Group Group  `gorm:"foreignKey:GroupID" json:"-"`   // многие к одному
-	Notes []Note `gorm:"foreignKey:StudentID" json:"-"` // один ко многим
+	Group Group  `gorm:"foreignKey:GroupID" json:"group"`   // многие к одному
+	Notes []Note `gorm:"foreignKey:StudentID" json:"notes"` // один ко многим
 }
 
 // Note — заметка
